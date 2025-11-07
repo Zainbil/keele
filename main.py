@@ -1,36 +1,35 @@
 # I acknowledge the use of OpenAI ChatGPT (GPT-5, https://chat.openai.com)
-# to assist in structuring and writing this iteration of the Grid Game.
+# for assisting with structuring and adding difficulty and energy management to this version.
 
 import os
 import random
+import sys
 
 class GridGame:
-    def __init__(self, size=8, enemy_count=5):
+    def __init__(self, size=8, difficulty='Medium'):
         self.size = size
-        self.enemy_count = enemy_count
+        self.difficulty = difficulty
+        self.settings = {
+            'Easy': {'enemy_count': 4, 'move_cost': 1},
+            'Medium': {'enemy_count': 7, 'move_cost': 2},
+            'Hard': {'enemy_count': 10, 'move_cost': 3}
+        }
         self.health = 100
         self.game_over = False
-        self.player_pos = self.random_position()
-        self.goal_pos = self.random_position(exclude=[self.player_pos])
-        self.enemy_positions = self.generate_enemies()
+        self.goal_pos = None
+        self.player_pos = None
+        self.enemy_positions = []
         self.grid = []
+        self.init_positions()
         self.update_grid()
 
-    def random_position(self, exclude=None):
-        exclude = exclude or []
-        while True:
-            pos = (random.randint(0, self.size - 1), random.randint(0, self.size - 1))
-            if pos not in exclude:
-                return pos
-
-    def generate_enemies(self):
-        positions = set()
-        exclude = {self.player_pos, self.goal_pos}
-        while len(positions) < self.enemy_count:
-            pos = self.random_position(exclude=list(exclude))
-            positions.add(pos)
-            exclude.add(pos)
-        return list(positions)
+    def init_positions(self):
+        all_positions = [(i, j) for i in range(self.size) for j in range(self.size)]
+        self.goal_pos = random.choice(all_positions)
+        self.player_pos = random.choice([pos for pos in all_positions if pos != self.goal_pos])
+        exclude = {self.goal_pos, self.player_pos}
+        self.enemy_positions = random.sample([pos for pos in all_positions if pos not in exclude],
+                                             self.settings[self.difficulty]['enemy_count'])
 
     def clear_screen(self):
         os.system('cls' if os.name == 'nt' else 'clear')
@@ -56,7 +55,7 @@ class GridGame:
 
     def print_grid(self):
         self.clear_screen()
-        print("=== GRID GAME ===")
+        print(f"=== GRID GAME ===   🎮 Difficulty: {self.difficulty}")
         print("Use W/A/S/D to move. Reach G, avoid E.\n")
         print("❤️ Health:", self.display_health_bar(), "\n")
         for row in self.grid:
@@ -87,10 +86,13 @@ class GridGame:
         new_y = max(0, min(self.size - 1, self.player_pos[1] + dy))
         self.player_pos = (new_x, new_y)
 
+        # Deduct health for movement cost based on difficulty
+        self.health -= self.settings[self.difficulty]['move_cost']
+
         # Check collisions
         if self.player_pos in self.enemy_positions:
-            self.health -= 20
-            print("\n⚔️ You hit an enemy! -20 health.")
+            self.health -= 10
+            print("\n⚔️ You hit an enemy! -10 health.")
         elif self.player_pos == self.goal_pos:
             self.game_over = True
             return
@@ -113,6 +115,39 @@ class GridGame:
         self.print_grid()
         print("\nThanks for playing!")
 
+
+def main_menu():
+    while True:
+        os.system('cls' if os.name == 'nt' else 'clear')
+        print("==== 🎲 GRID GAME ====")
+        print("1. Start Game")
+        print("2. Set Difficulty")
+        print("3. Quit")
+        choice = input("\nSelect option (1-3): ")
+
+        if choice == '1':
+            return selected_difficulty
+        elif choice == '2':
+            difficulty = input("Choose difficulty (Easy / Medium / Hard): ").capitalize()
+            if difficulty in ['Easy', 'Medium', 'Hard']:
+                print(f"Difficulty set to {difficulty}")
+                input("Press Enter to return to menu...")
+                return difficulty
+            else:
+                print("Invalid difficulty. Press Enter to continue...")
+                input()
+        elif choice == '3':
+            print("👋 Goodbye!")
+            sys.exit()
+        else:
+            print("Invalid input! Press Enter to continue...")
+            input()
+
+
+# Default difficulty
+selected_difficulty = 'Medium'
+
 if __name__ == "__main__":
-    game = GridGame()
+    selected_difficulty = main_menu()
+    game = GridGame(difficulty=selected_difficulty)
     game.play()
