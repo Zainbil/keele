@@ -87,32 +87,37 @@ class GridGameGUI:
         self.enemy_positions = random.sample([pos for pos in all_positions if pos not in exclude],
                                              self.settings[self.difficulty]['enemy_count'])
 
-        self.draw_grid()
+        self.grid_labels = []  # store label widgets
+        for i in range(self.size):
+            row_labels = []
+            for j in range(self.size):
+                lbl = tk.Label(
+                    self.frame_game,
+                    width=4, height=2,
+                    font=("Arial", 10, "bold"),
+                    relief="ridge", bg="lightgrey"
+                )
+                lbl.grid(row=i, column=j, padx=1, pady=1)
+                row_labels.append(lbl)
+            self.grid_labels.append(row_labels)
+
+        self.refresh_grid()
         self.update_info_label()
         self.root.focus_set()  # make sure window has focus for key input
 
-    def draw_grid(self):
-        for widget in self.frame_game.winfo_children():
-            widget.destroy()
-
+    def refresh_grid(self):
+        """Update the existing grid labels instead of rebuilding them."""
         for i in range(self.size):
             for j in range(self.size):
-                cell_text = ""
-                bg_color = "lightgrey"
-
+                lbl = self.grid_labels[i][j]
                 if (i, j) == self.player_pos:
-                    cell_text = "P"
-                    bg_color = "red"
+                    lbl.config(text="P", bg="red")
                 elif (i, j) == self.goal_pos:
-                    cell_text = "G"
-                    bg_color = "green"
+                    lbl.config(text="G", bg="green")
                 elif (i, j) in self.enemy_positions:
-                    cell_text = "E"
-                    bg_color = "skyblue"
-
-                label = tk.Label(self.frame_game, text=cell_text, width=4, height=2,
-                                 font=("Arial", 10, "bold"), bg=bg_color, relief="ridge")
-                label.grid(row=i, column=j, padx=1, pady=1)
+                    lbl.config(text="E", bg="skyblue")
+                else:
+                    lbl.config(text="", bg="lightgrey")
 
     def move_player(self, direction):
         if getattr(self, "game_over", False):
@@ -155,7 +160,7 @@ class GridGameGUI:
             return
 
         self.update_info_label()
-        self.draw_grid()
+        self.refresh_grid()
 
     def unbind_keys(self):
         """Remove all key bindings when exiting the game."""
