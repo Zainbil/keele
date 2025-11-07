@@ -1,9 +1,10 @@
 # I acknowledge the use of OpenAI ChatGPT (GPT-5, https://chat.openai.com)
-# for assisting with structuring and adding difficulty and energy management to this version.
+# for assisting with code organization, leaderboard persistence, and visual formatting.
 
 import os
-import random
 import sys
+import json
+import random
 
 class GridGame:
     def __init__(self, size=8, difficulty='Medium'):
@@ -16,10 +17,13 @@ class GridGame:
         }
         self.health = 100
         self.game_over = False
+        self.score = 0
         self.goal_pos = None
         self.player_pos = None
         self.enemy_positions = []
         self.grid = []
+        self.leaderboard_dir = "leaderboard"
+        self.leaderboard_file = os.path.join(self.leaderboard_dir, "high_scores.json")
         self.init_positions()
         self.update_grid()
 
@@ -36,15 +40,15 @@ class GridGame:
 
     def update_grid(self):
         self.grid = [['#' for _ in range(self.size)] for _ in range(self.size)]
-        # Place goal
+        # Place goal (green)
         gx, gy = self.goal_pos
-        self.grid[gx][gy] = 'G'
-        # Place enemies
+        self.grid[gx][gy] = '\033[92mG\033[0m'
+        # Place enemies (blue)
         for ex, ey in self.enemy_positions:
-            self.grid[ex][ey] = 'E'
-        # Place player
+            self.grid[ex][ey] = '\033[94mE\033[0m'
+        # Place player (red)
         px, py = self.player_pos
-        self.grid[px][py] = 'P'
+        self.grid[px][py] = '\033[91mP\033[0m'
 
     def display_health_bar(self, width=20):
         ratio = self.health / 100
@@ -63,8 +67,11 @@ class GridGame:
         if self.game_over:
             if self.health <= 0:
                 print("\n💀 Game Over! You ran out of health!")
-            else:
-                print("\n🎉 You reached the goal!")
+            elif self.health > 0:
+                print("\n🎉 Congratulations! You reached the goal!")
+                print(f"🏆 Final Score: {self.health}")
+                self.score = self.health
+                self.update_high_score()
 
     def move_player(self, direction):
         if self.game_over:
@@ -86,10 +93,10 @@ class GridGame:
         new_y = max(0, min(self.size - 1, self.player_pos[1] + dy))
         self.player_pos = (new_x, new_y)
 
-        # Deduct health for movement cost based on difficulty
+        # Deduct movement cost
         self.health -= self.settings[self.difficulty]['move_cost']
 
-        # Check collisions
+        # Collision checks
         if self.player_pos in self.enemy_positions:
             self.health -= 10
             print("\n⚔️ You hit an enemy! -10 health.")
@@ -102,6 +109,31 @@ class GridGame:
             self.game_over = True
 
         self.update_grid()
+
+    def read_high_scores(self):
+        """Read existing scores or return defaults."""
+        if not os.path.exists(self.leaderboard_dir):
+            os.makedirs(self.leaderboard_dir)
+        if not os.path.exists(self.leaderboard_file):
+            return {'Easy': 0, 'Medium': 0, 'Hard': 0}
+
+        try:
+            with open(self.leaderboard_file, 'r') as f:
+                return json.load(f)
+        except (json.JSONDecodeError, IOError):
+            return {'Easy': 0, 'Medium': 0, 'Hard': 0}
+
+    def update_high_score(self):
+        """Save new high score if it beats the previous one."""
+        scores = self.read_high_scores()
+        prev_score = scores.get(self.difficulty, 0)
+        if self.score > prev_score:
+            scores[self.difficulty] = self.score
+            with open(self.leaderboard_file, 'w') as f:
+                json.dump(scores, f)
+            print(f"\n🎉 New High Score for {self.difficulty}: {self.score}")
+        else:
+            print(f"\nYour score: {self.score} | Current high score: {prev_score}")
 
     def play(self):
         while not self.game_over:
@@ -116,27 +148,41 @@ class GridGame:
         print("\nThanks for playing!")
 
 
+def show_high_scores():
+    """Display all saved high scores."""
+    game = GridGame()
+    scores = game.read_high_scores()
+    print("\n=== 🏆 HIGH SCORES ===")
+    for diff, score in scores.items():
+        print(f"{diff}: {score}")
+    input("\nPress Enter to return to menu...")
+
+
 def main_menu():
+    global selected_difficulty
     while True:
         os.system('cls' if os.name == 'nt' else 'clear')
         print("==== 🎲 GRID GAME ====")
         print("1. Start Game")
         print("2. Set Difficulty")
-        print("3. Quit")
-        choice = input("\nSelect option (1-3): ")
+        print("3. View High Scores")
+        print("4. Quit")
+        choice = input("\nSelect option (1-4): ")
 
         if choice == '1':
             return selected_difficulty
         elif choice == '2':
             difficulty = input("Choose difficulty (Easy / Medium / Hard): ").capitalize()
             if difficulty in ['Easy', 'Medium', 'Hard']:
+                selected_difficulty = difficulty
                 print(f"Difficulty set to {difficulty}")
                 input("Press Enter to return to menu...")
-                return difficulty
             else:
                 print("Invalid difficulty. Press Enter to continue...")
                 input()
         elif choice == '3':
+            show_high_scores()
+        elif choice == '4':
             print("👋 Goodbye!")
             sys.exit()
         else:
