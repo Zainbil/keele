@@ -1,33 +1,75 @@
 # I acknowledge the use of OpenAI ChatGPT (GPT-5, https://chat.openai.com)
-# for assisting with code organization, leaderboard persistence, and visual formatting.
+# for assisting in designing and structuring this Tkinter GUI version of Grid Game with a full main menu.
 
-import os
-import sys
-import json
+import tkinter as tk
+from tkinter import messagebox
 import random
+import json
+import os
 
-class GridGame:
-    def __init__(self, size=8, difficulty='Medium'):
-        self.size = size
-        self.difficulty = difficulty
+class GridGameGUI:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("🎮 Grid Game")
+        self.size = 8
+        self.health = 100
+        self.score = 0
+        self.difficulty = "Medium"
         self.settings = {
             'Easy': {'enemy_count': 4, 'move_cost': 1},
             'Medium': {'enemy_count': 7, 'move_cost': 2},
-            'Hard': {'enemy_count': 10, 'move_cost': 3}
+            'Hard': {'enemy_count': 10, 'move_cost': 3},
         }
-        self.health = 100
-        self.game_over = False
-        self.score = 0
-        self.goal_pos = None
-        self.player_pos = None
-        self.enemy_positions = []
-        self.grid = []
         self.leaderboard_dir = "leaderboard"
         self.leaderboard_file = os.path.join(self.leaderboard_dir, "high_scores.json")
-        self.init_positions()
-        self.update_grid()
 
-    def init_positions(self):
+        # Frames
+        self.frame_menu = tk.Frame(root)
+        self.frame_game = tk.Frame(root)
+        self.frame_controls = tk.Frame(root)
+        self.frame_top = tk.Frame(root)
+
+        # Start with main menu
+        self.show_main_menu()
+
+    # --- MAIN MENU ---
+    def show_main_menu(self):
+        self.clear_frames()
+        self.frame_menu.pack(pady=50)
+
+        tk.Label(self.frame_menu, text="🎲 GRID GAME", font=("Arial", 20, "bold")).pack(pady=15)
+        tk.Button(self.frame_menu, text="▶ Start Game", width=20, height=2, command=self.start_game).pack(pady=5)
+        tk.Button(self.frame_menu, text="⚙ Set Difficulty", width=20, height=2, command=self.set_difficulty).pack(pady=5)
+        tk.Button(self.frame_menu, text="🏆 View High Scores", width=20, height=2, command=self.show_high_scores).pack(pady=5)
+        tk.Button(self.frame_menu, text="❌ Quit", width=20, height=2, command=self.root.quit).pack(pady=5)
+
+    def clear_frames(self):
+        for widget in self.root.winfo_children():
+            widget.pack_forget()
+
+    # --- GAME LOGIC ---
+    def start_game(self):
+        self.clear_frames()
+        self.health = 100
+        self.score = 0
+        self.game_over = False
+
+        # Rebuild frames for gameplay
+        self.frame_top = tk.Frame(self.root)
+        self.frame_top.pack(pady=10)
+
+        self.label_info = tk.Label(self.frame_top, text=f"Difficulty: {self.difficulty} | ❤️ Health: {self.health}", font=("Arial", 12))
+        self.label_info.pack()
+
+        self.frame_game = tk.Frame(self.root)
+        self.frame_game.pack()
+
+        self.frame_controls = tk.Frame(self.root)
+        self.frame_controls.pack(pady=10)
+
+        self.create_control_buttons()
+
+        # Initialize game data
         all_positions = [(i, j) for i in range(self.size) for j in range(self.size)]
         self.goal_pos = random.choice(all_positions)
         self.player_pos = random.choice([pos for pos in all_positions if pos != self.goal_pos])
@@ -35,46 +77,43 @@ class GridGame:
         self.enemy_positions = random.sample([pos for pos in all_positions if pos not in exclude],
                                              self.settings[self.difficulty]['enemy_count'])
 
-    def clear_screen(self):
-        os.system('cls' if os.name == 'nt' else 'clear')
+        self.draw_grid()
+        self.update_info_label()
 
-    def update_grid(self):
-        self.grid = [['#' for _ in range(self.size)] for _ in range(self.size)]
-        # Place goal (green)
-        gx, gy = self.goal_pos
-        self.grid[gx][gy] = '\033[92mG\033[0m'
-        # Place enemies (blue)
-        for ex, ey in self.enemy_positions:
-            self.grid[ex][ey] = '\033[94mE\033[0m'
-        # Place player (red)
-        px, py = self.player_pos
-        self.grid[px][py] = '\033[91mP\033[0m'
+    def create_control_buttons(self):
+        tk.Button(self.frame_controls, text="↑", width=5, command=lambda: self.move_player('W')).grid(row=0, column=1)
+        tk.Button(self.frame_controls, text="←", width=5, command=lambda: self.move_player('A')).grid(row=1, column=0)
+        tk.Button(self.frame_controls, text="↓", width=5, command=lambda: self.move_player('S')).grid(row=1, column=1)
+        tk.Button(self.frame_controls, text="→", width=5, command=lambda: self.move_player('D')).grid(row=1, column=2)
 
-    def display_health_bar(self, width=20):
-        ratio = self.health / 100
-        filled = int(width * ratio)
-        bar = '█' * filled + '-' * (width - filled)
-        color = "\033[92m" if ratio > 0.5 else "\033[93m" if ratio > 0.2 else "\033[91m"
-        return f"[{color}{bar}\033[0m] {self.health}/100"
+        # Back button to return to menu
+        tk.Button(self.frame_controls, text="🏠 Menu", width=10, command=self.show_main_menu).grid(row=2, column=1, pady=5)
 
-    def print_grid(self):
-        self.clear_screen()
-        print(f"=== GRID GAME ===   🎮 Difficulty: {self.difficulty}")
-        print("Use W/A/S/D to move. Reach G, avoid E.\n")
-        print("❤️ Health:", self.display_health_bar(), "\n")
-        for row in self.grid:
-            print(' '.join(row))
-        if self.game_over:
-            if self.health <= 0:
-                print("\n💀 Game Over! You ran out of health!")
-            elif self.health > 0:
-                print("\n🎉 Congratulations! You reached the goal!")
-                print(f"🏆 Final Score: {self.health}")
-                self.score = self.health
-                self.update_high_score()
+    def draw_grid(self):
+        for widget in self.frame_game.winfo_children():
+            widget.destroy()
+
+        for i in range(self.size):
+            for j in range(self.size):
+                cell_text = ""
+                bg_color = "lightgrey"
+
+                if (i, j) == self.player_pos:
+                    cell_text = "P"
+                    bg_color = "red"
+                elif (i, j) == self.goal_pos:
+                    cell_text = "G"
+                    bg_color = "green"
+                elif (i, j) in self.enemy_positions:
+                    cell_text = "E"
+                    bg_color = "skyblue"
+
+                label = tk.Label(self.frame_game, text=cell_text, width=4, height=2,
+                                 font=("Arial", 10, "bold"), bg=bg_color, relief="ridge")
+                label.grid(row=i, column=j, padx=1, pady=1)
 
     def move_player(self, direction):
-        if self.game_over:
+        if getattr(self, "game_over", False):
             return
 
         dx, dy = 0, 0
@@ -86,37 +125,43 @@ class GridGame:
             dy = -1
         elif direction == 'D':
             dy = 1
-        else:
-            return
 
         new_x = max(0, min(self.size - 1, self.player_pos[0] + dx))
         new_y = max(0, min(self.size - 1, self.player_pos[1] + dy))
         self.player_pos = (new_x, new_y)
 
-        # Deduct movement cost
         self.health -= self.settings[self.difficulty]['move_cost']
 
-        # Collision checks
         if self.player_pos in self.enemy_positions:
             self.health -= 10
-            print("\n⚔️ You hit an enemy! -10 health.")
+            messagebox.showinfo("Hit!", "⚔️ You hit an enemy! -10 health")
         elif self.player_pos == self.goal_pos:
+            self.score = self.health
             self.game_over = True
+            self.update_high_score()
+            messagebox.showinfo("🎉 Victory!", f"You reached the goal!\nFinal Score: {self.score}")
+            self.show_main_menu()
             return
 
         if self.health <= 0:
             self.health = 0
             self.game_over = True
+            messagebox.showwarning("💀 Game Over", "You ran out of health!")
+            self.show_main_menu()
+            return
 
-        self.update_grid()
+        self.update_info_label()
+        self.draw_grid()
 
+    def update_info_label(self):
+        self.label_info.config(text=f"Difficulty: {self.difficulty} | ❤️ Health: {self.health}")
+
+    # --- LEADERBOARD ---
     def read_high_scores(self):
-        """Read existing scores or return defaults."""
         if not os.path.exists(self.leaderboard_dir):
             os.makedirs(self.leaderboard_dir)
         if not os.path.exists(self.leaderboard_file):
             return {'Easy': 0, 'Medium': 0, 'Hard': 0}
-
         try:
             with open(self.leaderboard_file, 'r') as f:
                 return json.load(f)
@@ -124,76 +169,35 @@ class GridGame:
             return {'Easy': 0, 'Medium': 0, 'Hard': 0}
 
     def update_high_score(self):
-        """Save new high score if it beats the previous one."""
         scores = self.read_high_scores()
         prev_score = scores.get(self.difficulty, 0)
         if self.score > prev_score:
             scores[self.difficulty] = self.score
             with open(self.leaderboard_file, 'w') as f:
                 json.dump(scores, f)
-            print(f"\n🎉 New High Score for {self.difficulty}: {self.score}")
+            messagebox.showinfo("🏆 High Score!", f"New high score for {self.difficulty}: {self.score}")
         else:
-            print(f"\nYour score: {self.score} | Current high score: {prev_score}")
+            messagebox.showinfo("Score", f"Your score: {self.score}\nCurrent high score: {prev_score}")
 
-    def play(self):
-        while not self.game_over:
-            self.print_grid()
-            move = input("\nMove (W/A/S/D or Q to quit): ").upper()
-            if move == 'Q':
-                print("👋 Exiting game.")
-                break
-            self.move_player(move)
+    def show_high_scores(self):
+        scores = self.read_high_scores()
+        text = "\n".join([f"{k}: {v}" for k, v in scores.items()])
+        messagebox.showinfo("🏆 High Scores", text)
 
-        self.print_grid()
-        print("\nThanks for playing!")
+    # --- SETTINGS ---
+    def set_difficulty(self):
+        diff_win = tk.Toplevel(self.root)
+        diff_win.title("Select Difficulty")
+        tk.Label(diff_win, text="Choose Difficulty", font=("Arial", 12, "bold")).pack(pady=5)
+        for diff in ["Easy", "Medium", "Hard"]:
+            tk.Button(diff_win, text=diff, width=10, command=lambda d=diff: self.change_difficulty(d, diff_win)).pack(pady=3)
 
-
-def show_high_scores():
-    """Display all saved high scores."""
-    game = GridGame()
-    scores = game.read_high_scores()
-    print("\n=== 🏆 HIGH SCORES ===")
-    for diff, score in scores.items():
-        print(f"{diff}: {score}")
-    input("\nPress Enter to return to menu...")
-
-
-def main_menu():
-    global selected_difficulty
-    while True:
-        os.system('cls' if os.name == 'nt' else 'clear')
-        print("==== 🎲 GRID GAME ====")
-        print("1. Start Game")
-        print("2. Set Difficulty")
-        print("3. View High Scores")
-        print("4. Quit")
-        choice = input("\nSelect option (1-4): ")
-
-        if choice == '1':
-            return selected_difficulty
-        elif choice == '2':
-            difficulty = input("Choose difficulty (Easy / Medium / Hard): ").capitalize()
-            if difficulty in ['Easy', 'Medium', 'Hard']:
-                selected_difficulty = difficulty
-                print(f"Difficulty set to {difficulty}")
-                input("Press Enter to return to menu...")
-            else:
-                print("Invalid difficulty. Press Enter to continue...")
-                input()
-        elif choice == '3':
-            show_high_scores()
-        elif choice == '4':
-            print("👋 Goodbye!")
-            sys.exit()
-        else:
-            print("Invalid input! Press Enter to continue...")
-            input()
-
-
-# Default difficulty
-selected_difficulty = 'Medium'
+    def change_difficulty(self, diff, window):
+        self.difficulty = diff
+        window.destroy()
+        messagebox.showinfo("Difficulty Set", f"Difficulty changed to {diff}")
 
 if __name__ == "__main__":
-    selected_difficulty = main_menu()
-    game = GridGame(difficulty=selected_difficulty)
-    game.play()
+    root = tk.Tk()
+    app = GridGameGUI(root)
+    root.mainloop()
