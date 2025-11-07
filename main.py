@@ -1,5 +1,5 @@
 # I acknowledge the use of OpenAI ChatGPT (GPT-5, https://chat.openai.com)
-# for assisting in designing and structuring this Tkinter GUI version of Grid Game with a full main menu.
+# for assisting in structuring and debugging this Tkinter GUI version of Grid Game.
 
 import tkinter as tk
 from tkinter import messagebox
@@ -23,53 +23,57 @@ class GridGameGUI:
         self.leaderboard_dir = "leaderboard"
         self.leaderboard_file = os.path.join(self.leaderboard_dir, "high_scores.json")
 
-        # Frames
-        self.frame_menu = tk.Frame(root)
-        self.frame_game = tk.Frame(root)
-        self.frame_controls = tk.Frame(root)
-        self.frame_top = tk.Frame(root)
+        # Keep track of all active frames
+        self.frames = []
 
         # Start with main menu
         self.show_main_menu()
 
+    # --- FRAME MANAGEMENT ---
+    def clear_frames(self):
+        """Destroy all frames to prevent stacking."""
+        for f in self.frames:
+            f.destroy()
+        self.frames.clear()
+
     # --- MAIN MENU ---
     def show_main_menu(self):
         self.clear_frames()
-        self.frame_menu.pack(pady=50)
+        frame_menu = tk.Frame(self.root)
+        self.frames.append(frame_menu)
+        frame_menu.pack(pady=50)
 
-        tk.Label(self.frame_menu, text="🎲 GRID GAME", font=("Arial", 20, "bold")).pack(pady=15)
-        tk.Button(self.frame_menu, text="▶ Start Game", width=20, height=2, command=self.start_game).pack(pady=5)
-        tk.Button(self.frame_menu, text="⚙ Set Difficulty", width=20, height=2, command=self.set_difficulty).pack(pady=5)
-        tk.Button(self.frame_menu, text="🏆 View High Scores", width=20, height=2, command=self.show_high_scores).pack(pady=5)
-        tk.Button(self.frame_menu, text="❌ Quit", width=20, height=2, command=self.root.quit).pack(pady=5)
+        tk.Label(frame_menu, text="🎲 GRID GAME", font=("Arial", 20, "bold")).pack(pady=15)
+        tk.Button(frame_menu, text="▶ Start Game", width=20, height=2, command=self.start_game).pack(pady=5)
+        tk.Button(frame_menu, text="⚙ Set Difficulty", width=20, height=2, command=self.set_difficulty).pack(pady=5)
+        tk.Button(frame_menu, text="🏆 View High Scores", width=20, height=2, command=self.show_high_scores).pack(pady=5)
+        tk.Button(frame_menu, text="❌ Quit", width=20, height=2, command=self.root.quit).pack(pady=5)
 
-    def clear_frames(self):
-        for widget in self.root.winfo_children():
-            widget.pack_forget()
-
-    # --- GAME LOGIC ---
+    # --- GAMEPLAY ---
     def start_game(self):
         self.clear_frames()
         self.health = 100
         self.score = 0
         self.game_over = False
 
-        # Rebuild frames for gameplay
-        self.frame_top = tk.Frame(self.root)
-        self.frame_top.pack(pady=10)
+        frame_top = tk.Frame(self.root)
+        frame_top.pack(pady=10)
+        self.frames.append(frame_top)
 
-        self.label_info = tk.Label(self.frame_top, text=f"Difficulty: {self.difficulty} | ❤️ Health: {self.health}", font=("Arial", 12))
+        self.label_info = tk.Label(frame_top, text=f"Difficulty: {self.difficulty} | ❤️ Health: {self.health}", font=("Arial", 12))
         self.label_info.pack()
 
-        self.frame_game = tk.Frame(self.root)
-        self.frame_game.pack()
+        frame_game = tk.Frame(self.root)
+        frame_game.pack()
+        self.frames.append(frame_game)
+        self.frame_game = frame_game
 
-        self.frame_controls = tk.Frame(self.root)
-        self.frame_controls.pack(pady=10)
+        frame_controls = tk.Frame(self.root)
+        frame_controls.pack(pady=10)
+        self.frames.append(frame_controls)
+        self.create_control_buttons(frame_controls)
 
-        self.create_control_buttons()
-
-        # Initialize game data
+        # Setup positions
         all_positions = [(i, j) for i in range(self.size) for j in range(self.size)]
         self.goal_pos = random.choice(all_positions)
         self.player_pos = random.choice([pos for pos in all_positions if pos != self.goal_pos])
@@ -80,14 +84,12 @@ class GridGameGUI:
         self.draw_grid()
         self.update_info_label()
 
-    def create_control_buttons(self):
-        tk.Button(self.frame_controls, text="↑", width=5, command=lambda: self.move_player('W')).grid(row=0, column=1)
-        tk.Button(self.frame_controls, text="←", width=5, command=lambda: self.move_player('A')).grid(row=1, column=0)
-        tk.Button(self.frame_controls, text="↓", width=5, command=lambda: self.move_player('S')).grid(row=1, column=1)
-        tk.Button(self.frame_controls, text="→", width=5, command=lambda: self.move_player('D')).grid(row=1, column=2)
-
-        # Back button to return to menu
-        tk.Button(self.frame_controls, text="🏠 Menu", width=10, command=self.show_main_menu).grid(row=2, column=1, pady=5)
+    def create_control_buttons(self, frame):
+        tk.Button(frame, text="↑", width=5, command=lambda: self.move_player('W')).grid(row=0, column=1)
+        tk.Button(frame, text="←", width=5, command=lambda: self.move_player('A')).grid(row=1, column=0)
+        tk.Button(frame, text="↓", width=5, command=lambda: self.move_player('S')).grid(row=1, column=1)
+        tk.Button(frame, text="→", width=5, command=lambda: self.move_player('D')).grid(row=1, column=2)
+        tk.Button(frame, text="🏠 Menu", width=10, command=self.show_main_menu).grid(row=2, column=1, pady=5)
 
     def draw_grid(self):
         for widget in self.frame_game.winfo_children():
