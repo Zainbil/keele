@@ -1,5 +1,5 @@
 # I acknowledge the use of OpenAI ChatGPT (GPT-5, https://chat.openai.com)
-# for assisting in structuring and debugging this Tkinter GUI version of Grid Game.
+# for assisting in designing, optimizing, and implementing keyboard controls for this Tkinter version.
 
 import tkinter as tk
 from tkinter import messagebox
@@ -23,15 +23,11 @@ class GridGameGUI:
         self.leaderboard_dir = "leaderboard"
         self.leaderboard_file = os.path.join(self.leaderboard_dir, "high_scores.json")
 
-        # Keep track of all active frames
         self.frames = []
-
-        # Start with main menu
         self.show_main_menu()
 
     # --- FRAME MANAGEMENT ---
     def clear_frames(self):
-        """Destroy all frames to prevent stacking."""
         for f in self.frames:
             f.destroy()
         self.frames.clear()
@@ -71,9 +67,19 @@ class GridGameGUI:
         frame_controls = tk.Frame(self.root)
         frame_controls.pack(pady=10)
         self.frames.append(frame_controls)
-        self.create_control_buttons(frame_controls)
+        tk.Button(frame_controls, text="🏠 Menu", width=10, command=self.show_main_menu).grid(row=0, column=0, pady=5)
 
-        # Setup positions
+        # Bind keyboard input (WASD and arrow keys)
+        self.root.bind("<w>", lambda e: self.move_player('W'))
+        self.root.bind("<a>", lambda e: self.move_player('A'))
+        self.root.bind("<s>", lambda e: self.move_player('S'))
+        self.root.bind("<d>", lambda e: self.move_player('D'))
+        self.root.bind("<Up>", lambda e: self.move_player('W'))
+        self.root.bind("<Left>", lambda e: self.move_player('A'))
+        self.root.bind("<Down>", lambda e: self.move_player('S'))
+        self.root.bind("<Right>", lambda e: self.move_player('D'))
+
+        # Initialize game positions
         all_positions = [(i, j) for i in range(self.size) for j in range(self.size)]
         self.goal_pos = random.choice(all_positions)
         self.player_pos = random.choice([pos for pos in all_positions if pos != self.goal_pos])
@@ -83,13 +89,7 @@ class GridGameGUI:
 
         self.draw_grid()
         self.update_info_label()
-
-    def create_control_buttons(self, frame):
-        tk.Button(frame, text="↑", width=5, command=lambda: self.move_player('W')).grid(row=0, column=1)
-        tk.Button(frame, text="←", width=5, command=lambda: self.move_player('A')).grid(row=1, column=0)
-        tk.Button(frame, text="↓", width=5, command=lambda: self.move_player('S')).grid(row=1, column=1)
-        tk.Button(frame, text="→", width=5, command=lambda: self.move_player('D')).grid(row=1, column=2)
-        tk.Button(frame, text="🏠 Menu", width=10, command=self.show_main_menu).grid(row=2, column=1, pady=5)
+        self.root.focus_set()  # make sure window has focus for key input
 
     def draw_grid(self):
         for widget in self.frame_game.winfo_children():
@@ -142,6 +142,7 @@ class GridGameGUI:
             self.game_over = True
             self.update_high_score()
             messagebox.showinfo("🎉 Victory!", f"You reached the goal!\nFinal Score: {self.score}")
+            self.unbind_keys()
             self.show_main_menu()
             return
 
@@ -149,11 +150,17 @@ class GridGameGUI:
             self.health = 0
             self.game_over = True
             messagebox.showwarning("💀 Game Over", "You ran out of health!")
+            self.unbind_keys()
             self.show_main_menu()
             return
 
         self.update_info_label()
         self.draw_grid()
+
+    def unbind_keys(self):
+        """Remove all key bindings when exiting the game."""
+        for key in ["<w>", "<a>", "<s>", "<d>", "<Up>", "<Left>", "<Down>", "<Right>"]:
+            self.root.unbind(key)
 
     def update_info_label(self):
         self.label_info.config(text=f"Difficulty: {self.difficulty} | ❤️ Health: {self.health}")
